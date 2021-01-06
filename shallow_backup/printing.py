@@ -53,7 +53,7 @@ def print_path_green(text, path):
 	print(Fore.GREEN + Style.BRIGHT + text, Style.NORMAL + path + Style.RESET_ALL)
 
 
-def print_dry_run_copy_info(source, dest):
+def print_verbose_copy_info(source, dest):
 	"""Show source -> dest copy. Replaces expanded ~ with ~ if it's at the beginning of paths.
 	source and dest are trimmed in the middle if needed. Removed characters will be replaced by ...
 	:param source: Can be of type str or Path

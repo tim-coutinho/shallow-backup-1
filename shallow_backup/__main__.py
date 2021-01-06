@@ -31,11 +31,12 @@ from .upgrade import check_if_config_upgrade_needed
 @click.option('--remote', default=None, help="Set remote URL for the git repo.")
 @click.option('-separate-dotfiles-repo', is_flag=True, default=False, help="Use if you are trying to maintain a separate dotfiles repo and running into issue #229.")
 @click.option('-show', is_flag=True, default=False, help="Display config file.")
+@click.option('-verbose', is_flag=True, default=False, help="Give verbose output.")
 @click.option('--version', '-v', is_flag=True, default=False, help='Display version and author info.')
 def cli(add_dot, backup_configs_flag, delete_config, destroy_backup, backup_dots_flag, dry_run,
 		backup_fonts_flag, backup_all_flag, new_path, no_splash, no_new_backup_path_prompt, backup_packages_flag,
 		reinstall_all, reinstall_configs, reinstall_dots, reinstall_fonts, reinstall_packages, remote,
-		separate_dotfiles_repo, show, version):
+		separate_dotfiles_repo, show, verbose, version):
 	"""
 	\b
 	Easily back up installed packages, dotfiles, and more.
@@ -48,6 +49,8 @@ def cli(add_dot, backup_configs_flag, delete_config, destroy_backup, backup_dots
 
 	# Process CLI args
 	admin_action = any([add_dot, delete_config, destroy_backup, show, version])
+	backup_action = any([backup_all_flag, backup_configs_flag, backup_dots_flag,
+						 backup_packages_flag, backup_fonts_flag])
 	has_cli_arg = any([no_new_backup_path_prompt, backup_all_flag, backup_dots_flag,
 					   backup_packages_flag, backup_fonts_flag, backup_configs_flag,
 					   reinstall_dots, reinstall_fonts, reinstall_all, reinstall_configs,
@@ -55,6 +58,7 @@ def cli(add_dot, backup_configs_flag, delete_config, destroy_backup, backup_dots
 	skip_prompt = any([backup_all_flag, backup_dots_flag, backup_configs_flag,
 					   backup_packages_flag, backup_fonts_flag, reinstall_packages,
 					   reinstall_configs, reinstall_dots, reinstall_fonts])
+	verbose = verbose or dry_run
 
 	backup_config = get_config()
 
@@ -117,35 +121,32 @@ def cli(add_dot, backup_configs_flag, delete_config, destroy_backup, backup_dots
 	# Command line options
 	if skip_prompt:
 		if reinstall_packages:
-			reinstall_packages_sb(packages_path, dry_run=dry_run)
+			reinstall_packages_sb(packages_path, dry_run=dry_run, verbose=verbose)
 		elif reinstall_configs:
-			reinstall_configs_sb(configs_path, dry_run=dry_run)
+			reinstall_configs_sb(configs_path, dry_run=dry_run, verbose=verbose)
 		elif reinstall_fonts:
-			reinstall_fonts_sb(fonts_path, dry_run=dry_run)
+			reinstall_fonts_sb(fonts_path, dry_run=dry_run, verbose=verbose)
 		elif reinstall_dots:
-			reinstall_dots_sb(dotfiles_path, dry_run=dry_run)
+			reinstall_dots_sb(dotfiles_path, dry_run=dry_run, verbose=verbose)
 		elif reinstall_all:
-			reinstall_all_sb(dotfiles_path, packages_path, fonts_path, configs_path, dry_run=dry_run)
+			reinstall_all_sb(dotfiles_path, packages_path, fonts_path, configs_path, dry_run=dry_run, verbose=verbose)
 		elif backup_all_flag:
-			backup_all(dotfiles_path, packages_path, fonts_path, configs_path, dry_run=dry_run, skip=True)
-			if not dry_run:
-				git_add_all_commit_push(repo, "full_backup")
+			backup_all(dotfiles_path, packages_path, fonts_path, configs_path, dry_run=dry_run, verbose=verbose, skip=True)
+			target = "full_backup"
 		elif backup_dots_flag:
-			backup_dotfiles(dotfiles_path, dry_run=dry_run, skip=True)
-			if not dry_run:
-				git_add_all_commit_push(repo, "dotfiles", separate_dotfiles_repo)
+			backup_dotfiles(dotfiles_path, dry_run=dry_run, verbose=verbose, skip=True)
+			target = "dotfiles"
 		elif backup_configs_flag:
-			backup_configs(configs_path, dry_run=dry_run, skip=True)
-			if not dry_run:
-				git_add_all_commit_push(repo, "configs")
+			backup_configs(configs_path, dry_run=dry_run, verbose=verbose, skip=True)
+			target = "configs"
 		elif backup_packages_flag:
-			backup_packages(packages_path, dry_run=dry_run, skip=True)
-			if not dry_run:
-				git_add_all_commit_push(repo, "packages")
+			backup_packages(packages_path, dry_run=dry_run, verbose=verbose, skip=True)
+			target = "packages"
 		elif backup_fonts_flag:
-			backup_fonts(fonts_path, dry_run=dry_run, skip=True)
-			if not dry_run:
-				git_add_all_commit_push(repo, "fonts")
+			backup_fonts(fonts_path, dry_run=dry_run, verbose=verbose, skip=True)
+			target = "fonts"
+		if not dry_run and backup_action:
+			git_add_all_commit_push(repo, target, separate_dotfiles_repo)
 	# No CL options, show action menu and process selected option.
 	else:
 		selection = main_menu_prompt()

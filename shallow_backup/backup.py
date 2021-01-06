@@ -10,14 +10,15 @@ from .compatibility import *
 from .config import get_config
 
 
-def backup_dotfiles(backup_dest_path, dry_run=False, home_path=os.path.expanduser("~"), skip=False):
+def backup_dotfiles(backup_dest_path: str, dry_run: bool = False, verbose: bool = False, home_path: str = os.path.expanduser("~"), skip: bool = False):
 	"""
 	Create `dotfiles` dir and makes copies of dotfiles and dotfolders.
 	Assumes that dotfiles are stored in the home directory.
-	:param skip: Boolean flag to skip prompting for overwrite. Used for scripting.
 	:param backup_dest_path: Destination path for dotfiles. Like, ~/shallow-backup/dotfiles. Used in tests.
+	:param dry_run: Flag for determining if copying should occur.
+	:param verbose: Flag for determining if debug info should be shown.
 	:param home_path: Path where dotfiles will be found. $HOME by default.
-	:param dry_run: Flag for determining if debug info should be shown or copying should occur.
+	:param skip: Boolean flag to skip prompting for overwrite. Used for scripting.
 	"""
 	print_section_header("DOTFILES", Fore.BLUE)
 	if not dry_run:
@@ -60,37 +61,38 @@ def backup_dotfiles(backup_dest_path, dry_run=False, home_path=os.path.expanduse
 			dotfiles_mp_in.append(path_pair)
 
 	# Print source -> dest and skip the copying step
-	if dry_run:
+	if verbose:
 		print_yellow_bold("Dotfiles:")
 		for source, dest in dotfiles_mp_in:
-			print_dry_run_copy_info(source, dest)
+			print_verbose_copy_info(source, dest)
 
 		print_yellow_bold("\nDotfolders:")
 		for source, dest in dotfolders_mp_in:
-			print_dry_run_copy_info(source, dest)
+			print_verbose_copy_info(source, dest)
 
+	if dry_run:
 		return
 
 	# Fix https://github.com/alichtman/shallow-backup/issues/230
-	for dest_path in [path_pair[1] for path_pair in dotfiles_mp_in + dotfolders_mp_in]:
+	for dest_path in (path_pair[1] for path_pair in dotfiles_mp_in + dotfolders_mp_in):
 		print(f"Creating: {os.path.split(dest_path)[0]}")
 		safe_mkdir(os.path.split(dest_path)[0])
 
 	with mp.Pool(mp.cpu_count()):
 		print_blue_bold("Backing up dotfolders...")
 		for x in dotfolders_mp_in:
-			p = mp.Process(target=copy_dir_if_valid, args=(x[0], x[1],))
+			p = mp.Process(target=copy_dir_if_valid, args=(x[0], x[1]))
 			p.start()
 			p.join()
 
 		print_blue_bold("Backing up dotfiles...")
 		for x in dotfiles_mp_in:
-			p = mp.Process(target=copyfile, args=(x[0], x[1],))
+			p = mp.Process(target=copyfile, args=(x[0], x[1]))
 			p.start()
 			p.join()
 
 
-def backup_configs(backup_path, dry_run: bool = False, skip=False):
+def backup_configs(backup_path: str, dry_run: bool = False, verbose: bool = False, skip: bool = False):
 	"""
 	Creates `configs` directory and places config backups there.
 	Configs are application settings, generally. .plist files count.
@@ -109,8 +111,9 @@ def backup_configs(backup_path, dry_run: bool = False, skip=False):
 	for config_path, target in config["config_mapping"].items():
 		dest = os.path.join(backup_path, target)
 
+		if verbose:
+			print_verbose_copy_info(config_path, dest)
 		if dry_run:
-			print_dry_run_copy_info(config_path, dest)
 			continue
 
 		quoted_dest = quote(dest)
@@ -122,17 +125,15 @@ def backup_configs(backup_path, dry_run: bool = False, skip=False):
 			copyfile(config_path, quoted_dest)
 
 
-def backup_packages(backup_path, dry_run: bool = False, skip=False):
+def backup_packages(backup_path: str, dry_run: bool = False, verbose: bool = False, skip: bool = False):
 	"""
 	Creates `packages` directory and places install list text files there.
 	"""
-	def run_cmd_if_no_dry_run(command, dest, dry_run) -> int:
-		if dry_run:
-			print_dry_run_copy_info(f"$ {command}", dest)
-			# Return -1 for any processes depending on chained successful commands (npm)
-			return -1
-		else:
-			return run_cmd_write_stdout(command, dest)
+	def run_cmd_if_no_dry_run(command, dest) -> int:
+		if verbose:
+			print_verbose_copy_info(f"$ {command}", dest)
+		# Return -1 for any processes depending on chained successful commands (npm)
+		return -1 if dry_run else run_cmd_write_stdout(command, dest)
 
 	print_section_header("PACKAGES", Fore.BLUE)
 	if not dry_run:
@@ -142,45 +143,41 @@ def backup_packages(backup_path, dry_run: bool = False, skip=False):
 	print_pkg_mgr_backup("gem")
 	command = r"gem list | tail -n+1 | sed -E 's/\((default: )?(.*)\)/--version \2/'"
 	dest = f"{backup_path}/gem_list.txt"
-	run_cmd_if_no_dry_run(command, dest, dry_run)
+	run_cmd_if_no_dry_run(command, dest)
 
 	# brew
 	print_pkg_mgr_backup("brew")
 	command = f"brew bundle dump --file {backup_path}/brew_list.txt"
 	dest = f"{backup_path}/brew_list.txt"
+	if verbose:
+		print_verbose_copy_info(f"$ {command}", dest)
 	if not dry_run and not run_cmd(command):
 		print_yellow("brew package manager not found.")
-
-	# ruby
-	print_pkg_mgr_backup("gem")
-	command = r"gem list | tail -n+1 | sed -E 's/\((default: )?(.*)\)/--version \2/'"
-	dest = f"{backup_path}/gem_list.txt"
-	run_cmd_if_no_dry_run(command, dest, dry_run)
 
 	# cargo
 	print_pkg_mgr_backup("cargo")
 	command = r"cargo install --list | grep '^\w.*:$' | sed -E 's/ v(.*):$/ --version \1/'"
 	dest = f"{backup_path}/cargo_list.txt"
-	run_cmd_if_no_dry_run(command, dest, dry_run)
+	run_cmd_if_no_dry_run(command, dest)
 
 	# pip
 	print_pkg_mgr_backup("pip")
 	command = "pip list --format=freeze"
 	dest = f"{backup_path}/pip_list.txt"
-	run_cmd_if_no_dry_run(command, dest, dry_run)
+	run_cmd_if_no_dry_run(command, dest)
 
 	# pip3
 	print_pkg_mgr_backup("pip3")
 	command = "pip3 list --format=freeze"
 	dest = f"{backup_path}/pip3_list.txt"
-	run_cmd_if_no_dry_run(command, dest, dry_run)
+	run_cmd_if_no_dry_run(command, dest)
 
 	# npm
 	print_pkg_mgr_backup("npm")
 	command = "npm ls --global --parseable=true --depth=0"
 	temp_file_path = f"{backup_path}/npm_temp_list.txt"
 	# If command is successful, go to the next parsing step.
-	npm_backup_cmd_success = run_cmd_if_no_dry_run(command, temp_file_path, dry_run) == 0
+	npm_backup_cmd_success = run_cmd_if_no_dry_run(command, temp_file_path) == 0
 	if npm_backup_cmd_success:
 		npm_dest_file = f"{backup_path}/npm_list.txt"
 		# Parse npm output
@@ -196,29 +193,29 @@ def backup_packages(backup_path, dry_run: bool = False, skip=False):
 	print_pkg_mgr_backup("Atom")
 	command = "apm list --installed --bare"
 	dest = f"{backup_path}/apm_list.txt"
-	run_cmd_if_no_dry_run(command, dest, dry_run)
+	run_cmd_if_no_dry_run(command, dest)
 
 	# vscode extensions
 	print_pkg_mgr_backup("VSCode")
 	command = "code --list-extensions --show-versions"
 	dest = f"{backup_path}/vscode_list.txt"
-	run_cmd_if_no_dry_run(command, dest, dry_run)
+	run_cmd_if_no_dry_run(command, dest)
 
 	# macports
 	print_pkg_mgr_backup("macports")
 	command = "port installed requested"
 	dest = f"{backup_path}/macports_list.txt"
-	run_cmd_if_no_dry_run(command, dest, dry_run)
+	run_cmd_if_no_dry_run(command, dest)
 
 	# system installs
 	print_pkg_mgr_backup("System Applications")
 	applications_path = get_applications_dir()
-	command = "ls {}".format(applications_path)
+	command = f"ls {applications_path}"
 	dest = f"{backup_path}/system_apps_list.txt"
-	run_cmd_if_no_dry_run(command, dest, dry_run)
+	run_cmd_if_no_dry_run(command, dest)
 
 
-def backup_fonts(backup_path: str, dry_run: bool = False, skip: bool = False):
+def backup_fonts(backup_path: str, dry_run: bool = False, verbose: bool = False, skip: bool = False):
 	"""Copies all .ttf and .otf files in the  to backup/fonts/
 	"""
 	print_section_header("FONTS", Fore.BLUE)
@@ -227,23 +224,24 @@ def backup_fonts(backup_path: str, dry_run: bool = False, skip: bool = False):
 	print_blue("Copying '.otf' and '.ttf' fonts...")
 	fonts_path = get_fonts_dir()
 	if os.path.isdir(fonts_path):
-		fonts = [quote(os.path.join(fonts_path, font)) for font in os.listdir(fonts_path) if
-				 font.endswith(".otf") or font.endswith(".ttf")]
+		fonts = (quote(os.path.join(fonts_path, font)) for font in os.listdir(fonts_path) if
+				 font.endswith(".otf") or font.endswith(".ttf"))
 
 		for font in fonts:
 			dest = os.path.join(backup_path, font.split("/")[-1])
 			if os.path.exists(font):
-				if dry_run:
-					print_dry_run_copy_info(font, dest)
-				else:
+				if verbose:
+					print_verbose_copy_info(font, dest)
+				if not dry_run:
 					copyfile(font, dest)
 	else:
 		print_red('Skipping fonts backup. No fonts directory found.')
 
 
-def backup_all(dotfiles_path, packages_path, fonts_path, configs_path, dry_run=False, skip=False):
+def backup_all(dotfiles_path: str, packages_path: str, fonts_path: str, configs_path: str,
+			   dry_run: bool = False, verbose: bool = False, skip: bool = False):
 	"""Complete backup procedure."""
-	backup_dotfiles(dotfiles_path, dry_run=dry_run, skip=skip)
-	backup_packages(packages_path, dry_run=dry_run, skip=skip)
-	backup_fonts(fonts_path, dry_run=dry_run, skip=skip)
-	backup_configs(configs_path, dry_run=dry_run, skip=skip)
+	backup_dotfiles(dotfiles_path, dry_run=dry_run, verbose=verbose, skip=skip)
+	backup_packages(packages_path, dry_run=dry_run, verbose=verbose, skip=skip)
+	backup_fonts(fonts_path, dry_run=dry_run, verbose=verbose, skip=skip)
+	backup_configs(configs_path, dry_run=dry_run, verbose=verbose, skip=skip)
