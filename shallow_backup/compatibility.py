@@ -33,16 +33,16 @@ def get_config_paths():
 			terminal_path: "terminal_plist"
 		}
 	else:  # Linux paths
-		sublime2_path = "/.config/sublime-text-2"
-		sublime3_path = "/.config/sublime-text-3"
-		vscode_path_1 = "/.config/Code/User/settings.json"
-		vscode_path_2 = "/.config/Code/User/Snippets"
-		vscode_path_3 = "/.config/Code/User/keybindings.json"
+		sublime2_path = os.path.join(get_home(), ".config/sublime-text-2")
+		sublime3_path = os.path.join(get_home(), ".config/sublime-text-3")
+		vscode_path_1 = os.path.join(get_home(), ".config/Code/User/settings.json")
+		vscode_path_2 = os.path.join(get_home(), ".config/Code/User/Snippets")
+		vscode_path_3 = os.path.join(get_home(), ".config/Code/User/keybindings.json")
 		atom_path = os.path.join(get_home(), ".atom")
 		return {
 			# TODO: Double check these paths. Not sure these are right.
-			sublime2_path: "sublime2",
-			sublime3_path: "sublime3",
+			sublime2_path: "sublime2/Packages/User",
+			sublime3_path: "sublime3/Packages/User",
 			vscode_path_1: "vscode/settings",
 			vscode_path_2: "vscode/Snippets",
 			vscode_path_3: "vscode/keybindings",

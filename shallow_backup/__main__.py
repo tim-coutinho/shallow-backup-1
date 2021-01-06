@@ -154,7 +154,7 @@ def cli(add_dot, backup_configs_flag, delete_config, destroy_backup, backup_dots
 		if action == "back up":
 			if target == "all":
 				backup_all(dotfiles_path, packages_path, fonts_path, configs_path)
-				git_add_all_commit_push(repo, target)
+				git_add_all_commit_push(repo, "full_backup")
 			elif target == "dotfiles":
 				backup_dotfiles(dotfiles_path)
 				git_add_all_commit_push(repo, target, separate_dotfiles_repo)
