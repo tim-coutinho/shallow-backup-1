@@ -104,7 +104,7 @@ def reinstall_configs_sb(configs_path: str, dry_run: bool = False, verbose: bool
 			continue
 
 		if os.path.isdir(source_path):
-			copytree(source_path, dest_path)
+			copytree(source_path, dest_path, dirs_exist_ok=True)
 		elif os.path.isfile(source_path):
 			copyfile(source_path, dest_path)
 
